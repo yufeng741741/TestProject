@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>简易笔记</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; font-family: "Microsoft YaHei", sans-serif; color: #1f2937; background: #f8fafc; }
+    .app { display: flex; height: 100vh; }
+    aside { width: 240px; display: flex; flex-direction: column; border-right: 1px solid #e2e8f0; background: #fff; }
+    .sidebar-header { display: flex; align-items: center; justify-content: space-between; padding: 18px 16px; border-bottom: 1px solid #e2e8f0; }
+    h1 { margin: 0; font-size: 18px; }
+    button { border: 0; border-radius: 6px; cursor: pointer; font: inherit; }
+    #addNote { padding: 5px 10px; color: #fff; background: #2563eb; }
+    #noteList { margin: 0; padding: 8px; list-style: none; overflow-y: auto; }
+    .note-item { width: 100%; padding: 10px; overflow: hidden; text-align: left; text-overflow: ellipsis; white-space: nowrap; color: #475569; background: transparent; }
+    .note-item:hover, .note-item.active { color: #1d4ed8; background: #eff6ff; }
+    main { display: flex; flex: 1; flex-direction: column; min-width: 0; padding: 28px; }
+    #title { width: 100%; margin-bottom: 16px; padding: 0; border: 0; outline: 0; font-size: 28px; font-weight: 700; color: inherit; background: transparent; }
+    #content { flex: 1; width: 100%; resize: none; padding: 16px; border: 1px solid #e2e8f0; border-radius: 8px; outline-color: #93c5fd; font: 16px/1.7 "Microsoft YaHei", sans-serif; color: inherit; background: #fff; }
+    .footer { display: flex; justify-content: flex-end; gap: 10px; padding-top: 12px; color: #64748b; font-size: 13px; }
+    #deleteNote { padding: 5px 10px; color: #dc2626; background: #fee2e2; }
+    @media (max-width: 600px) { aside { width: 150px; } main { padding: 16px; } }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside>
+      <div class="sidebar-header"><h1>我的笔记</h1><button id="addNote" type="button">新建</button></div>
+      <ul id="noteList" aria-label="笔记目录"></ul>
+    </aside>
+    <main>
+      <input id="title" aria-label="笔记标题" placeholder="笔记标题" />
+      <textarea id="content" aria-label="笔记内容" placeholder="在这里记录内容..."></textarea>
+      <div class="footer"><span id="saveStatus">自动保存</span><button id="deleteNote" type="button">删除当前笔记</button></div>
+    </main>
+  </div>
+
+  <script>
+    const storageKey = 'simple-notes';
+    const title = document.querySelector('#title');
+    const content = document.querySelector('#content');
+    const noteList = document.querySelector('#noteList');
+    const status = document.querySelector('#saveStatus');
+    let notes = JSON.parse(localStorage.getItem(storageKey) || '[]');
+    let currentId = notes[0]?.id;
+
+    function save() {
+      localStorage.setItem(storageKey, JSON.stringify(notes));
+      status.textContent = '已保存';
+    }
+
+    function currentNote() { return notes.find(note => note.id === currentId); }
+
+    function render() {
+      const note = currentNote();
+      title.value = note?.title || '';
+      content.value = note?.content || '';
+      noteList.innerHTML = notes.map(note => `<li><button class="note-item ${note.id === currentId ? 'active' : ''}" data-id="${note.id}" type="button">${escapeHtml(note.title || '未命名笔记')}</button></li>`).join('');
+    }
+
+    function escapeHtml(text) {
+      return text.replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[char]);
+    }
+
+    function createNote() {
+      const note = { id: String(Date.now()), title: '未命名笔记', content: '' };
+      notes.unshift(note);
+      currentId = note.id;
+      save();
+      render();
+      title.select();
+    }
+
+    document.querySelector('#addNote').addEventListener('click', createNote);
+    noteList.addEventListener('click', event => {
+      const button = event.target.closest('.note-item');
+      if (!button) return;
+      currentId = button.dataset.id;
+      render();
+    });
+    [title, content].forEach(field => field.addEventListener('input', () => {
+      const note = currentNote();
+      if (!note) return;
+      note.title = title.value;
+      note.content = content.value;
+      save();
+      render();
+      field.focus();
+    }));
+    document.querySelector('#deleteNote').addEventListener('click', () => {
+      if (!currentId || !confirm('确定删除这条笔记吗？')) return;
+      notes = notes.filter(note => note.id !== currentId);
+      currentId = notes[0]?.id;
+      save();
+      render();
+    });
+
+    if (!notes.length) createNote(); else render();
+  </script>
+</body>
+</html>
